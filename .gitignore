@@ -26,6 +26,9 @@ replay_pid*
 # Superpowers process artifacts (specs, plans) — keep local, not tracked
 docs/superpowers/
 
+# Modernize tool scratch output — keep local, not tracked
+.github/modernize/
+
 # Gradle
 .gradle/
 build/
