@@ -3,9 +3,11 @@ package com.reqdrop.core;
 import com.reqdrop.model.DropRule;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -78,8 +80,7 @@ public final class RuleStore {
     public void removeRule(String id) {
         List<DropRule> copy = rules();
         copy.removeIf(r -> r.id().equals(id));
-        hits.remove(id);
-        setRules(copy);
+        setRules(copy); // rebuildSnapshot prunes the hit counter for the removed id
     }
 
     public void setRuleEnabled(String id, boolean ruleEnabled) {
@@ -96,7 +97,9 @@ public final class RuleStore {
     // Called under lock.
     private void rebuildSnapshot() {
         List<CompiledRule> next = new ArrayList<>();
+        Set<String> liveIds = new HashSet<>();
         for (DropRule rule : rules) {
+            liveIds.add(rule.id());
             try {
                 next.add(new CompiledRule(rule));
             } catch (RuntimeException e) {
@@ -105,6 +108,9 @@ public final class RuleStore {
             }
         }
         this.snapshot = List.copyOf(next);
+        // Prune hit counters for rules no longer present. Covers bulk replace and the
+        // incrementHit/removeRule resurrection race (orphans clear on the next rebuild).
+        hits.keySet().retainAll(liveIds);
     }
 
     public Optional<DropRule> firstMatch(String host, String path) {

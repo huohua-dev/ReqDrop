@@ -49,6 +49,23 @@ class RuleStoreTest {
     }
 
     @Test
+    void hitCountersPrunedForRemovedRulesAndResurrectedOrphans() {
+        RuleStore store = new RuleStore();
+        store.addRule(host("a", "*.example.com"));
+        store.incrementHit("a");
+        assertEquals(1, store.hitCount("a"));
+
+        store.removeRule("a");
+        assertEquals(0, store.hitCount("a"));
+
+        // Simulate the incrementHit/removeRule race resurrecting a dead id; the orphan
+        // must be cleared on the next snapshot rebuild (any rule mutation).
+        store.incrementHit("a");
+        store.addRule(host("b", "*.b.com"));
+        assertEquals(0, store.hitCount("a"));
+    }
+
+    @Test
     void hitCountsAndChangeListener() {
         RuleStore store = new RuleStore();
         AtomicInteger changes = new AtomicInteger();
